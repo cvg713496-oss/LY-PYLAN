@@ -1,0 +1,6 @@
+// ក្នុង userController.js ត្រង់ searchPeople
+if (province && province !== "") {
+    console.log("កំពុងស្វែងរកខេត្តលេខ ID:", province); // នេះនឹងលោតក្នុង Terminal
+    query += " AND people.province_id = ?"; 
+    params.push(province); 
+}
