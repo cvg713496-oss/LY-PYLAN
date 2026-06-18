@@ -1,5 +1,6 @@
 const db = require('../config/db');
 
+// --- មុខងារសម្រាប់ Users ---
 const createUser = async (req, res) => {
     try {
         const { name, email } = req.body;
@@ -18,6 +19,8 @@ const getUsers = async (req, res) => {
     } catch (error) { res.status(500).json({ message: "Server Error", error: error.message }); }
 };
 
+
+// --- មុខងារសម្រាប់ Province ---
 const getProvinces = async (req, res) => {
     try {
         const query = "SELECT * FROM province";
@@ -36,6 +39,8 @@ const getProvinceById = async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: "Server Error", error: error.message }); }
 };
 
+
+// --- មុខងារសម្រាប់ People ---
 const getPeople = async (req, res) => {
     try {
         const query = `
@@ -60,13 +65,23 @@ const getPersonById = async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: "Server Error", error: error.message }); }
 };
 
+// មុខងារនេះត្រូវបានកែសម្រួលដើម្បីការពារ Error 500
 const createPerson = async (req, res) => {
     try {
         const { surname, givenname, dob, gender, province_id } = req.body;
+        
+        // ពិនិត្យមើលថាតើទិន្នន័យមានគ្រប់គ្រាន់ដែរឬទេ
+        if (!surname || !givenname || !dob || !gender || !province_id) {
+            return res.status(400).json({ success: false, message: "គ្រប់ Field ទាំងអស់គឺតម្រូវឱ្យបំពេញ!" });
+        }
+
         const query = "INSERT INTO people (surname, givenname, dob, gender, province_id) VALUES (?, ?, ?, ?, ?)";
         const [result] = await db.query(query, [surname, givenname, dob, gender, province_id]);
         res.status(201).json({ success: true, message: "Person created successfully!", insertId: result.insertId });
-    } catch (error) { res.status(500).json({ success: false, message: "Server Error", error: error.message }); }
+    } catch (error) { 
+        console.error("Database Insert Error:", error);
+        res.status(500).json({ success: false, message: "Server Error", error: error.message }); 
+    }
 };
 
 const searchPeople = async (req, res) => {
@@ -83,4 +98,14 @@ const searchPeople = async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: "Server Error", error: error.message }); }
 };
 
-module.exports = { createUser, getUsers, getProvinces, getProvinceById, getPeople, getPersonById, createPerson, searchPeople };
+// ត្រូវប្រាកដថាមុខងារទាំងអស់នេះត្រូវបាន Export ចេញ
+module.exports = { 
+    createUser, 
+    getUsers, 
+    getProvinces, 
+    getProvinceById, 
+    getPeople, 
+    getPersonById, 
+    createPerson, 
+    searchPeople 
+};

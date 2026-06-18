@@ -128,247 +128,78 @@
         let allPeopleData = [];
         let localSavedData = JSON.parse(localStorage.getItem('mySavedPeople')) || [];
         let deletedIds = JSON.parse(localStorage.getItem('myDeletedPeople')) || []; 
-        
         let editingId = null; 
-
-        function ensureUniqueIds(array) {
-            const seen = new Set();
-            return array.filter(item => {
-                const id = String(item.id);
-                if (deletedIds.includes(id)) return false;
-
-                if (!seen.has(id)) {
-                    seen.add(id);
-                    return true;
-                }
-                return false; 
-            });
-        }
 
         async function loadInitialData() {
             let dbData = [];
-            
             try {
-                // បានប្តូរពី localhost ទៅជា IP របស់អ្នក
-                const response = await fetch('http://192.168.159.136:3000/api/people');
+                const response = await fetch('http://localhost:3000/api/people');
                 if(response.ok) {
                     const result = await response.json();
-                    dbData = result.data || result || []; 
+                    dbData = result.data || [];
                 }
             } catch (err) { 
-                console.log("បញ្ហាក្នុងការទាញទិន្នន័យពី Database 192.168.159.136..."); 
+                console.log("បញ្ហាក្នុងការទាញទិន្នន័យពី Database..."); 
             }
-
-            let combinedData = [...dbData, ...localSavedData];
-            allPeopleData = ensureUniqueIds(combinedData);
-            allPeopleData.sort((a, b) => (parseInt(a.id) || 0) - (parseInt(b.id) || 0));
-            
+            allPeopleData = dbData;
             displayTableData(allPeopleData);
         }
 
         function displayTableData(dataArray) {
             const tableBody = document.getElementById('peopleTableBody');
             tableBody.innerHTML = ''; 
-
-            if (dataArray && dataArray.length > 0) {
-                dataArray.forEach(p => {
-                    const age = p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : 'N/A';
-                    
-                    tableBody.innerHTML += `
-                        <tr>
-                            <td>${p.id || 'N/A'}</td>
-                            <td>${p.surname} ${p.givenname}</td>
-                            <td>${p.gender}</td>
-                            <td>${age}</td>
-                            <td>${p.provincename_kh || p.province_id || 'N/A'}</td>
-                            <td>
-                                <button class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;" onclick="editPerson('${p.id}')">Edit</button>
-                                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" onclick="deletePerson('${p.id}')">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } else {
-                tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No records found</td></tr>';
-            }
-        }
-
-        function applyFilters() {
-            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
-            const ageFrom = parseInt(document.getElementById('ageFrom').value);
-            const ageTo = parseInt(document.getElementById('ageTo').value);
-            const provinceFilter = document.getElementById('filterProvince').value;
-
-            const filteredData = allPeopleData.filter(p => {
-                const fullName = `${p.surname} ${p.givenname}`.toLowerCase();
-                const matchName = searchQuery === '' || fullName.includes(searchQuery);
-
-                const age = p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : 0;
-                const matchAgeFrom = isNaN(ageFrom) || age >= ageFrom;
-                const matchAgeTo = isNaN(ageTo) || age <= ageTo;
-
-                const prov = p.provincename_kh || p.province_id || '';
-                const matchProvince = provinceFilter === '' || prov === provinceFilter;
-
-                return matchName && matchAgeFrom && matchAgeTo && matchProvince;
+            dataArray.forEach(p => {
+                const age = p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : 'N/A';
+                tableBody.innerHTML += `
+                    <tr>
+                        <td>${p.id || 'N/A'}</td>
+                        <td>${p.surname} ${p.givenname}</td>
+                        <td>${p.gender}</td>
+                        <td>${age}</td>
+                        <td>${p.provincename_kh || p.province_id || 'N/A'}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="editPerson('${p.id}')">Edit</button>
+                            <button class="btn btn-danger" onclick="deletePerson('${p.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
             });
-
-            displayTableData(filteredData);
         }
+async function savePerson(event) {
+    event.preventDefault(); 
+    const personData = {
+        surname: document.getElementById('surname').value,
+        givenname: document.getElementById('givenname').value,
+        dob: document.getElementById('dob').value,
+        gender: document.getElementById('gender').value,
+        province_id: document.getElementById('province').value 
+    };
 
-        function editPerson(id) {
-            const person = allPeopleData.find(p => String(p.id) === String(id));
-            if (!person) return;
+    try {
+        const response = await fetch('http://localhost:3000/api/people', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(personData)
+        });
 
-            editingId = id; 
-            document.getElementById('modalTitle').innerText = "Edit People";
-
-            document.getElementById('surname').value = person.surname || '';
-            document.getElementById('givenname').value = person.givenname || '';
-            document.getElementById('gender').value = person.gender || 'M';
-            document.getElementById('province').value = person.province_id || person.provincename_kh || '';
-
-            if (person.dob) {
-                try {
-                    const d = new Date(person.dob);
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    document.getElementById('dob').value = `${d.getFullYear()}-${month}-${day}`;
-                } catch(e) {}
-            } else {
-                document.getElementById('dob').value = '';
-            }
-
-            openModal();
-        }
-
-        async function deletePerson(id) {
-            if(!confirm("តើអ្នកពិតជាចង់លុបទិន្នន័យនេះមែនទេ?")) return;
-
-            try {
-                // បានប្តូរពី localhost ទៅជា IP របស់អ្នក
-                await fetch(`http://192.168.159.136:3000/api/people/${id}`, { method: 'DELETE' });
-            } catch (err) {
-                console.log("Database Delete Error: Ignored");
-            }
-
-            localSavedData = localSavedData.filter(p => String(p.id) !== String(id));
-            localStorage.setItem('mySavedPeople', JSON.stringify(localSavedData));
-
-            if (!deletedIds.includes(String(id))) {
-                deletedIds.push(String(id));
-                localStorage.setItem('myDeletedPeople', JSON.stringify(deletedIds));
-            }
-
-            allPeopleData = allPeopleData.filter(p => String(p.id) !== String(id));
-            applyFilters();
-        }
-
-        async function savePerson(event) {
-            event.preventDefault(); 
-            
-            const surname = document.getElementById('surname').value;
-            const givenname = document.getElementById('givenname').value;
-            const dob = document.getElementById('dob').value;
-            const gender = document.getElementById('gender').value;
-            const province = document.getElementById('province').value;
-
-            if (editingId) {
-                const updateData = {
-                    id: editingId,
-                    surname: surname,
-                    givenname: givenname,
-                    dob: dob,
-                    gender: gender,
-                    province_id: province,
-                    provincename_kh: province 
-                };
-
-                try {
-                    // បានប្តូរពី localhost ទៅជា IP របស់អ្នក
-                    await fetch(`http://192.168.159.136:3000/api/people/${editingId}`, {
-                        method: 'PUT', 
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(updateData)
-                    });
-                } catch (err) {
-                    console.log("Database Update Error: Ignored");
-                }
-
-                const localIndex = localSavedData.findIndex(p => String(p.id) === String(editingId));
-                if (localIndex !== -1) {
-                    localSavedData[localIndex] = updateData;
-                } else {
-                    localSavedData.push(updateData);
-                }
-                localStorage.setItem('mySavedPeople', JSON.stringify(localSavedData));
-
-                const index = allPeopleData.findIndex(p => String(p.id) === String(editingId));
-                if (index !== -1) allPeopleData[index] = updateData;
-
-                applyFilters();
-                closeModal();
-                return; 
-            }
-
-            let nextId = 1;
-            if (allPeopleData.length > 0) {
-                const maxId = Math.max(...allPeopleData.map(p => parseInt(p.id) || 0));
-                nextId = maxId + 1;
-            }
-
-            const newData = {
-                id: nextId,
-                surname: surname,
-                givenname: givenname,
-                dob: dob,
-                gender: gender,
-                province_id: province,
-                provincename_kh: province 
-            };
-
-            let savedToDB = false;
-            try {
-                // បានប្តូរពី localhost ទៅជា IP របស់អ្នក
-                const response = await fetch('http://192.168.159.136:3000/api/people', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(newData)
-                });
-                if(response.ok) savedToDB = true; 
-            } catch (err) {
-                console.log("Database Save Error: Ignored");
-            }
-
-            if (!savedToDB) {
-                localSavedData.push(newData);
-                localStorage.setItem('mySavedPeople', JSON.stringify(localSavedData));
-            }
-
-            allPeopleData.push(newData);
-            applyFilters(); 
+        // បន្ថែមការ console log លទ្ធផលដើម្បីមើល
+        const result = await response.json();
+        if (response.ok) {
+            alert("រក្សាទុកជោគជ័យ!");
             closeModal();
+            loadInitialData(); 
+        } else {
+            console.error("Server Error Response:", result); // មើល Error នៅទីនេះ
+            alert("មានបញ្ហាក្នុងការរក្សាទុក! មើល Console សម្រាប់ព័ត៌មានបន្ថែម");
         }
-
-        function openAddModal() {
-            editingId = null; 
-            document.getElementById('modalTitle').innerText = "Add People";
-            openModal();
-        }
-
+    } catch (err) {
+        console.error("Fetch Error:", err);
+    }
+}
+        function openAddModal() { editingId = null; openModal(); }
         function openModal() { document.getElementById('addModal').style.display = 'flex'; }
         function closeModal() { document.getElementById('addModal').style.display = 'none'; }
         
-        function clearLocalData() {
-            if(confirm("តើអ្នកចង់លុបទិន្នន័យដែល Save និងបញ្ជីអ្នកដែលធ្លាប់លុប ក្នុង Browser នេះចោលមែនទេ?")) {
-                localStorage.removeItem('mySavedPeople');
-                localStorage.removeItem('myDeletedPeople');
-                localSavedData = [];
-                deletedIds = [];
-                location.reload();
-            }
-        }
-
         window.onload = () => { loadInitialData(); };
     </script>
 </body>
